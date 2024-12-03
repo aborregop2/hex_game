@@ -112,9 +112,58 @@ public class PlayerMinMax implements IPlayer, IAuto {
     }
 
     public int heuristic(HexGameStatus s, int color) {
-        // Implementa aquí la heurística para evaluar el estado del tablero
-        return 0;
+        int boardSize = s.getSize();
+        int centerX = boardSize / 2;
+        int centerY = boardSize / 2;
+        int score = 0;
+    
+        // 1. Evaluar control de las casillas centrales
+        for (int i = 0; i < boardSize; i++) {
+            for (int j = 0; j < boardSize; j++) {
+                int distanceToCenter = Math.abs(i - centerX) + Math.abs(j - centerY);
+                if (s.getPos(i, j) == color) {
+                    score += (boardSize - distanceToCenter);  // Casillas más cercanas al centro tienen más valor.
+                } else if (s.getPos(i, j) == -color) {
+                    score -= (boardSize - distanceToCenter);  // Penalizar las casillas del oponente cercanas al centro.
+                }
+            }
+        }
+    
+        // 2. Evaluar la conexión de caminos (usando una búsqueda en profundidad o Dijkstra para contar conexiones)
+        score += evaluatePathConnection(s, color);
+    
+        // 3. Evaluar los bloqueos de rutas del oponente
+        score += evaluateBlockades(s, color);
+    
+        return score;
     }
+    
+    private int evaluatePathConnection(HexGameStatus s, int color) {
+        // Implementar Dijkstra o BFS para calcular la longitud de las rutas conectadas
+        // Este es un ejemplo de cómo podrías hacer la evaluación de la conexión de rutas
+        int score = 0;
+        
+        // Aquí deberías aplicar alguna técnica de búsqueda (como BFS o DFS) para encontrar
+        // el número de rutas conectadas de un jugador. Este es un ejemplo básico, pero puedes
+        // usar Dijkstra para encontrar caminos mínimos entre puntos de interés.
+        // Por ejemplo, se puede hacer un BFS para encontrar cuántos caminos están conectados
+        // y dar un puntaje positivo por cada uno de ellos.
+    
+        return score;
+    }
+    
+    private int evaluateBlockades(HexGameStatus s, int color) {
+        // Este método evalúa la efectividad de bloquear las rutas del oponente
+        int score = 0;
+        
+        // Evaluar si el movimiento de un jugador puede bloquear rutas clave del oponente.
+        // Si el oponente tiene una ruta importante que se corta, este movimiento se valora positivamente.
+        
+        return score;
+    }
+    
+    
+    
 
     private List<Point> getPossibleMoves(HexGameStatus s) {
         List<Point> moves = new ArrayList<>();

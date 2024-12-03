@@ -1,0 +1,11 @@
+HEX Heuristic
+
+    1. En medio es mejor que en los bordes. 
+    2. Piedras a 2 de distancia con 2 caminos posibles de distancia 2 es mejor. 
+    3. Si el rival me esta bloqueando uno de los dos caminos posibles es mejor poner mi piedra en el camino restante.
+    4. Es mejor siempre que se pueda poner una piedra en la direccion ganadora del jugador, vertical o horizontal.
+    5. Es mejor cortar el camino del contrario si este tiene posibilidad de crear caminos ganadores.
+
+
+
+Implementació:
