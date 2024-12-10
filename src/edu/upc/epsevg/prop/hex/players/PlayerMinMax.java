@@ -7,7 +7,13 @@ import edu.upc.epsevg.prop.hex.PlayerMove;
 import edu.upc.epsevg.prop.hex.SearchType;
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Set;
 
 public class PlayerMinMax implements IPlayer, IAuto {
     String name;
@@ -112,58 +118,131 @@ public class PlayerMinMax implements IPlayer, IAuto {
     }
 
     public int heuristic(HexGameStatus s, int color) {
-        int boardSize = s.getSize();
-        int centerX = boardSize / 2;
-        int centerY = boardSize / 2;
-        int score = 0;
-    
-        // 1. Evaluar control de las casillas centrales
-        for (int i = 0; i < boardSize; i++) {
-            for (int j = 0; j < boardSize; j++) {
-                int distanceToCenter = Math.abs(i - centerX) + Math.abs(j - centerY);
-                if (s.getPos(i, j) == color) {
-                    score += (boardSize - distanceToCenter);  // Casillas más cercanas al centro tienen más valor.
-                } else if (s.getPos(i, j) == -color) {
-                    score -= (boardSize - distanceToCenter);  // Penalizar las casillas del oponente cercanas al centro.
+        Point sourceNode = new Point(-1, -1); // Nodo virtual para la primera fila
+        Point targetNode = new Point(-2, -2); // Nodo virtual para la última fila
+
+        // Construimos el grafo para Dijkstra
+        Map<Point, List<Point>> graph = new HashMap<>();
+        buildGraph(s, color, graph, sourceNode, targetNode);
+
+        // Ejecutar Dijkstra desde el nodo fuente al nodo destino
+        int shortestPath = dijkstra(graph, sourceNode, targetNode);
+
+        // Cuantos más caminos cortos haya, mejor
+        int pathCount = countPaths(graph, sourceNode, targetNode);
+
+        // Puntuación basada en el camino más corto y el número de caminos
+        if (shortestPath == Integer.MAX_VALUE) {
+            return Integer.MIN_VALUE; // No hay conexión
+        }
+        return (int) (1000.0 / shortestPath + pathCount * 10);
+    }
+
+    // Construye el grafo con nodos virtuales y conexiones válidas
+    private void buildGraph(HexGameStatus s, int color, Map<Point, List<Point>> graph, Point sourceNode, Point targetNode) {
+        int size = s.getSize();
+
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                Point current = new Point(i, j);
+                if (s.getPos(i, j) == color || s.getPos(i, j) == 0) {
+                    graph.putIfAbsent(current, new ArrayList<>());
+
+                    // Conectar nodos adyacentes
+                    for (Point neighbor : getNeighbors(current, size)) {
+                        if (s.getPos(neighbor.x, neighbor.y) == color || s.getPos(neighbor.x, neighbor.y) == 0) {
+                            graph.get(current).add(neighbor);
+                        }
+                    }
+
+                    // Conectar nodos de la primera fila al nodo virtual fuente
+                    if (i == 0) {
+                        graph.putIfAbsent(sourceNode, new ArrayList<>());
+                        graph.get(sourceNode).add(current);
+                    }
+
+                    // Conectar nodos de la última fila al nodo virtual destino
+                    if (i == size - 1) {
+                        graph.putIfAbsent(targetNode, new ArrayList<>());
+                        graph.get(targetNode).add(current);
+                    }
                 }
             }
         }
-    
-        // 2. Evaluar la conexión de caminos (usando una búsqueda en profundidad o Dijkstra para contar conexiones)
-        score += evaluatePathConnection(s, color);
-    
-        // 3. Evaluar los bloqueos de rutas del oponente
-        score += evaluateBlockades(s, color);
-    
-        return score;
     }
-    
-    private int evaluatePathConnection(HexGameStatus s, int color) {
-        // Implementar Dijkstra o BFS para calcular la longitud de las rutas conectadas
-        // Este es un ejemplo de cómo podrías hacer la evaluación de la conexión de rutas
-        int score = 0;
-        
-        // Aquí deberías aplicar alguna técnica de búsqueda (como BFS o DFS) para encontrar
-        // el número de rutas conectadas de un jugador. Este es un ejemplo básico, pero puedes
-        // usar Dijkstra para encontrar caminos mínimos entre puntos de interés.
-        // Por ejemplo, se puede hacer un BFS para encontrar cuántos caminos están conectados
-        // y dar un puntaje positivo por cada uno de ellos.
-    
-        return score;
+
+    // Ejecuta Dijkstra desde el nodo fuente al nodo destino
+    private int dijkstra(Map<Point, List<Point>> graph, Point source, Point target) {
+        Map<Point, Integer> distances = new HashMap<>();
+        PriorityQueue<Point> pq = new PriorityQueue<>(Comparator.comparingInt(distances::get));
+
+        distances.put(source, 0);
+        pq.add(source);
+
+        while (!pq.isEmpty()) {
+            Point current = pq.poll();
+            int currentDistance = distances.get(current);
+
+            if (current.equals(target)) {
+                return currentDistance;
+            }
+
+            for (Point neighbor : graph.getOrDefault(current, new ArrayList<>())) {
+                int newDistance = currentDistance + 1; // Peso uniforme
+                if (newDistance < distances.getOrDefault(neighbor, Integer.MAX_VALUE)) {
+                    distances.put(neighbor, newDistance);
+                    pq.add(neighbor);
+                }
+            }
+        }
+
+        return Integer.MAX_VALUE; // No hay camino
     }
-    
-    private int evaluateBlockades(HexGameStatus s, int color) {
-        // Este método evalúa la efectividad de bloquear las rutas del oponente
-        int score = 0;
-        
-        // Evaluar si el movimiento de un jugador puede bloquear rutas clave del oponente.
-        // Si el oponente tiene una ruta importante que se corta, este movimiento se valora positivamente.
-        
-        return score;
+
+    // Cuenta la cantidad de caminos válidos entre los nodos virtuales
+    private int countPaths(Map<Point, List<Point>> graph, Point source, Point target) {
+        Set<Point> visited = new HashSet<>();
+        return dfs(graph, source, target, visited);
     }
-    
-    
-    
+
+    // DFS para contar caminos
+    private int dfs(Map<Point, List<Point>> graph, Point current, Point target, Set<Point> visited) {
+        if (current.equals(target)) {
+            return 1;
+        }
+        visited.add(current);
+        int pathCount = 0;
+
+        for (Point neighbor : graph.getOrDefault(current, new ArrayList<>())) {
+            if (!visited.contains(neighbor)) {
+                pathCount += dfs(graph, neighbor, target, visited);
+            }
+        }
+
+        visited.remove(current);
+        return pathCount;
+    }
+
+    // Retorna los vecinos válidos dentro del tablero
+    private List<Point> getNeighbors(Point p, int size) {
+        int x = p.x, y = p.y;
+        List<Point> neighbors = new ArrayList<>();
+
+        int[][] directions = {
+            {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}
+        };
+
+        for (int[] dir : directions) {
+            int nx = x + dir[0];
+            int ny = y + dir[1];
+            if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                neighbors.add(new Point(nx, ny));
+            }
+        }
+
+        return neighbors;
+    }
+
 
     private List<Point> getPossibleMoves(HexGameStatus s) {
         List<Point> moves = new ArrayList<>();

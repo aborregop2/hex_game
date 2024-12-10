@@ -8,4 +8,8 @@ HEX Heuristic
 
 
 
-Implementació:
+HEX Heuristic 2:
+
+    1. Nodo adicional que sea adyacente a la ultima fila y otro que sea adyacente a la primera fila.
+    2. Tirar dikstra en uno de los nodos y ver el camino más corto, el camino minimo es el mejor.
+    3. Cuantos más caminos tenga mejor y más cortos mejor.
