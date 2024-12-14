@@ -69,8 +69,10 @@ public class UnitTesting {
         buildGraph(gs, -1, graph, sourceNode, targetNode);
         //printGraph(graph, sourceNode, targetNode);
 
-        System.out.println("Num paths: " + countPaths(gs, graph, sourceNode, targetNode, dijkstra(gs, graph, sourceNode, targetNode)));
-
+        HashMap<Point, Integer> distances = new HashMap<>();
+        System.out.println("Distancia mínima: " + dijkstra(gs, graph, distances, sourceNode, targetNode));
+        printHashMapVisual(distances);
+        
     }
 
      // Construye el grafo con nodos virtuales y conexiones válidas
@@ -167,8 +169,7 @@ public class UnitTesting {
   }
 
       // Ejecuta Dijkstra desde el nodo fuente al nodo destino
-      private static int dijkstra(HexGameStatus s, Map<Point, List<Point>> graph, Point source, Point target) {
-        Map<Point, Integer> distances = new HashMap<>();
+      private static int dijkstra(HexGameStatus s, Map<Point, List<Point>> graph, HashMap<Point, Integer> distances, Point source, Point target) {
         PriorityQueue<Point> pq = new PriorityQueue<>(Comparator.comparingInt(distances::get));
 
         distances.put(source, 0);
@@ -200,6 +201,24 @@ public class UnitTesting {
         return Integer.MAX_VALUE; // No hay camino
     }
 
+    public static void printHashMapVisual(HashMap<Point, Integer> map) {
+      if (map.isEmpty()) {
+          System.out.println("El HashMap está vacío.");
+          return;
+      }
 
+      System.out.println("Contenido del HashMap:");
+      System.out.println("-----------------------");
+
+      for (Map.Entry<Point, Integer> entry : map.entrySet()) {
+          Point point = entry.getKey();
+          Integer value = entry.getValue();
+
+          if (point.y == 10) System.out.printf("Punto (x: %d, y: %d) -> Valor: %d%n", point.x, point.y, value);
+      }
+
+      System.out.println("-----------------------");
+    }
+  
     
 }

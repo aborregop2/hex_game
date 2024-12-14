@@ -6,7 +6,9 @@ import edu.upc.epsevg.prop.hex.IPlayer;
 import edu.upc.epsevg.prop.hex.PlayerMove;
 import edu.upc.epsevg.prop.hex.SearchType;
 import java.awt.Point;
+import java.util.Map.Entry;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,20 +37,6 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
         List<Point> possibleMoves = getPossibleMoves(s);
 
-        /* 
-        possibleMoves.sort((move1, move2) -> {
-            HexGameStatus newState1 = new HexGameStatus(s);
-            newState1.placeStone(move1);
-            int eval1 = heuristic(newState1, s.getCurrentPlayerColor());
-
-            HexGameStatus newState2 = new HexGameStatus(s);
-            newState2.placeStone(move2);
-            int eval2 = heuristic(newState2, s.getCurrentPlayerColor());
-
-            return Integer.compare(eval2, eval1);
-        });
-        */
-
         for (Point move : possibleMoves) {
             HexGameStatus newState = new HexGameStatus(s);
             newState.placeStone(move);
@@ -62,7 +50,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
             alpha = Math.max(alpha, bestEval);
         }
 
-        System.out.println("Best move: " + bestMove);
+        //System.out.println("Best move: " + bestMove);
 
         return new PlayerMove(bestMove, exploredNodes, depth, SearchType.MINIMAX);
     }
@@ -76,20 +64,6 @@ public class PlayerMinMax implements IPlayer, IAuto {
         int bestValue = max ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 
         List<Point> possibleMoves = getPossibleMoves(s);
-
-        /* 
-        possibleMoves.sort((move1, move2) -> {
-            HexGameStatus newState1 = new HexGameStatus(s);
-            newState1.placeStone(move1);
-            int eval1 = heuristic(newState1, color);
-
-            HexGameStatus newState2 = new HexGameStatus(s);
-            newState2.placeStone(move2);
-            int eval2 = heuristic(newState2, color);
-
-            return Integer.compare(eval2, eval1);
-        });
-        */
 
         for (Point move : possibleMoves) {
             HexGameStatus newState = new HexGameStatus(s);
@@ -129,24 +103,35 @@ public class PlayerMinMax implements IPlayer, IAuto {
         Point targetNode = new Point(-2, -2); // Nodo virtual para la última fila
 
         // Construimos el grafo para Dijkstra
-        Map<Point, List<Point>> graph = new HashMap<>();
-        buildGraph(s, color, graph, sourceNode, targetNode);
+        Map<Point, List<Point>> myGraph = new HashMap<>();
+        Map<Point, List<Point>> hisGraph = new HashMap<>();
+        buildGraph(s, color, myGraph, sourceNode, targetNode);
+        buildGraph(s, -color, hisGraph, sourceNode, targetNode);
 
         // Ejecutar Dijkstra desde el nodo fuente al nodo destino
-        int shortestPath = dijkstra(s, graph, sourceNode, targetNode);
-        System.out.println("Shortest path: " + shortestPath);
+        HashMap<Point, Integer> myDistances = new HashMap<>();
+        HashMap<Point, Integer> hisDistances = new HashMap<>();
+
+        int myShortestPath = dijkstra(s, myGraph, myDistances, sourceNode, targetNode);
+        int hisShortestPath = dijkstra(s, hisGraph, hisDistances, sourceNode, targetNode);
+        //System.out.println("Shortest path: " + shortestPath);
 
         // Cuantos más caminos cortos haya, mejor
-        int pathCount = countPaths(s, graph, sourceNode, targetNode, shortestPath);
-        System.out.println("Path count: " + pathCount);
+        int myPathCount = countPaths(s, myDistances, myShortestPath);
+        int hisPathCount = countPaths(s, hisDistances, hisShortestPath);
+       //System.out.println("Path count: " + pathCount);
+
+        // Calculamos el peso del tablero basado en la posición de las fichas
+        int boardWeight = calculateBoardWeight(s);
+        //System.out.println("Board weight: " + boardWeight);
 
         // Puntuación basada en el camino más corto y el número de caminos
-        if (shortestPath == Integer.MAX_VALUE) {
+        if (myShortestPath == Integer.MAX_VALUE) {
             return Integer.MIN_VALUE; // No hay conexión
         }
 
         
-        return (int) (1000.0 / shortestPath + pathCount * 10);
+        return (int) (100000.0 / myShortestPath + myPathCount * 100) -  (int) (100000.0 / hisShortestPath + hisPathCount * 100);
     }
 
     // Construye el grafo con nodos virtuales y conexiones válidas
@@ -196,8 +181,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
 
     // Ejecuta Dijkstra desde el nodo fuente al nodo destino
-    private int dijkstra(HexGameStatus s, Map<Point, List<Point>> graph, Point source, Point target) {
-        Map<Point, Integer> distances = new HashMap<>();
+    private int dijkstra(HexGameStatus s, Map<Point, List<Point>> graph, HashMap<Point, Integer> distances, Point source, Point target) {
         PriorityQueue<Point> pq = new PriorityQueue<>(Comparator.comparingInt(distances::get));
 
         distances.put(source, 0);
@@ -230,36 +214,25 @@ public class PlayerMinMax implements IPlayer, IAuto {
     }
 
     // Cuenta la cantidad de caminos válidos entre los nodos virtuales
-    private int countPaths(HexGameStatus s, Map<Point, List<Point>> graph, Point source, Point target, int shortestPath) {
-        Set<Point> visited = new HashSet<>();
-        return dfs(s, graph, source, target, visited, shortestPath, 0);
-    }
-
-    // DFS para contar caminos
-    private int dfs(HexGameStatus s, Map<Point, List<Point>> graph, Point current, Point target, Set<Point> visited, int shortestPath, int count) {
-        if (current.equals(target)) {
-            return 1;
+    private int countPaths(HexGameStatus s, HashMap<Point, Integer> distances, int shortestPath) {
+        Set<Entry<Point,Integer>> entries = distances.entrySet();
+        int counter = 0;
+        if (s.getCurrentPlayerColor() == 1) {
+            for (Entry<Point, Integer> entry : entries) {
+                if (entry.getKey().x == s.getSize() - 1 && entry.getValue() == shortestPath) {
+                    counter++;
+                }
+            }
         }
-        visited.add(current);
-        int pathCount = 0;
-
-        for (Point neighbor : graph.getOrDefault(current, new ArrayList<>())) {
-            if (!visited.contains(neighbor)) {
-                if ((neighbor.x >= 0) && s.getPos(neighbor.x, neighbor.y) == 0) {
-                    count++;
-                }
-
-                if (count <= shortestPath) {
-                    pathCount += dfs(s, graph, neighbor, target, visited, shortestPath, count);
-                }
-                else {
-                    count = 0;
-                    continue;
+        else {
+            for (Entry<Point, Integer> entry : entries) {
+                if (entry.getKey().y == s.getSize() - 1 && entry.getValue() == shortestPath) {
+                    counter++;
                 }
             }
         }
 
-        return pathCount;
+        return counter;
     }
 
     // Retorna los vecinos válidos dentro del tablero
@@ -293,5 +266,29 @@ public class PlayerMinMax implements IPlayer, IAuto {
             }
         }
         return moves;
+    }
+
+    private int calculateBoardWeight(HexGameStatus s) {
+        int size = s.getSize();
+        int center = size / 2; // Coordenada central del tablero
+        int weight = 0;
+
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                int pos = s.getPos(i, j);
+                if (pos != 0) { // Si hay una piedra colocada
+                    // Calcular la distancia al centro (usamos Manhattan como métrica)
+                    int distanceToCenter = Math.abs(i - center) + Math.abs(j - center);
+
+                    // Invertimos el peso: posiciones más cercanas al centro tienen más peso
+                    int positionWeight = size - distanceToCenter;
+
+                    // Sumamos el peso positivo o negativo según el jugador
+                    weight += (pos == s.getCurrentPlayerColor()) ? positionWeight : -positionWeight;
+                }
+            }
+        }
+
+        return weight;
     }
 }
