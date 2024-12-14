@@ -35,6 +35,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
         List<Point> possibleMoves = getPossibleMoves(s);
 
+        /* 
         possibleMoves.sort((move1, move2) -> {
             HexGameStatus newState1 = new HexGameStatus(s);
             newState1.placeStone(move1);
@@ -46,6 +47,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
             return Integer.compare(eval2, eval1);
         });
+        */
 
         for (Point move : possibleMoves) {
             HexGameStatus newState = new HexGameStatus(s);
@@ -60,10 +62,13 @@ public class PlayerMinMax implements IPlayer, IAuto {
             alpha = Math.max(alpha, bestEval);
         }
 
+        System.out.println("Best move: " + bestMove);
+
         return new PlayerMove(bestMove, exploredNodes, depth, SearchType.MINIMAX);
     }
 
     public int minmax(HexGameStatus s, int depth, int color, boolean max, int alpha, int beta) {
+        //System.out.println("Depth: " + depth);
         if (depth == 0) {
             return heuristic(s, color);
         }
@@ -72,6 +77,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
         List<Point> possibleMoves = getPossibleMoves(s);
 
+        /* 
         possibleMoves.sort((move1, move2) -> {
             HexGameStatus newState1 = new HexGameStatus(s);
             newState1.placeStone(move1);
@@ -83,6 +89,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
             return Integer.compare(eval2, eval1);
         });
+        */
 
         for (Point move : possibleMoves) {
             HexGameStatus newState = new HexGameStatus(s);
@@ -126,15 +133,19 @@ public class PlayerMinMax implements IPlayer, IAuto {
         buildGraph(s, color, graph, sourceNode, targetNode);
 
         // Ejecutar Dijkstra desde el nodo fuente al nodo destino
-        int shortestPath = dijkstra(graph, sourceNode, targetNode);
+        int shortestPath = dijkstra(s, graph, sourceNode, targetNode);
+        System.out.println("Shortest path: " + shortestPath);
 
         // Cuantos más caminos cortos haya, mejor
-        int pathCount = countPaths(graph, sourceNode, targetNode);
+        int pathCount = countPaths(s, graph, sourceNode, targetNode, shortestPath);
+        System.out.println("Path count: " + pathCount);
 
         // Puntuación basada en el camino más corto y el número de caminos
         if (shortestPath == Integer.MAX_VALUE) {
             return Integer.MIN_VALUE; // No hay conexión
         }
+
+        
         return (int) (1000.0 / shortestPath + pathCount * 10);
     }
 
@@ -144,8 +155,8 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
-                Point current = new Point(i, j);
                 if (s.getPos(i, j) == color || s.getPos(i, j) == 0) {
+                    Point current = new Point(i, j);
                     graph.putIfAbsent(current, new ArrayList<>());
 
                     // Conectar nodos adyacentes
@@ -156,23 +167,36 @@ public class PlayerMinMax implements IPlayer, IAuto {
                     }
 
                     // Conectar nodos de la primera fila al nodo virtual fuente
-                    if (i == 0) {
+                    if (i == 0 && s.getCurrentPlayerColor() == 1) {
                         graph.putIfAbsent(sourceNode, new ArrayList<>());
                         graph.get(sourceNode).add(current);
+                        graph.get(current).add(sourceNode);
+                    }
+                    else if (j == 0 && s.getCurrentPlayerColor() == -1) {
+                        graph.putIfAbsent(sourceNode, new ArrayList<>());
+                        graph.get(sourceNode).add(current);
+                        graph.get(current).add(sourceNode);
                     }
 
                     // Conectar nodos de la última fila al nodo virtual destino
-                    if (i == size - 1) {
+                    if ((i == size - 1) && s.getCurrentPlayerColor() == 1) {
                         graph.putIfAbsent(targetNode, new ArrayList<>());
                         graph.get(targetNode).add(current);
+                        graph.get(current).add(targetNode);
+                    }
+                    else if ((j == size - 1) && s.getCurrentPlayerColor() == -1) {
+                        graph.putIfAbsent(targetNode, new ArrayList<>());
+                        graph.get(targetNode).add(current);
+                        graph.get(current).add(targetNode);
                     }
                 }
             }
         }
     }
 
+
     // Ejecuta Dijkstra desde el nodo fuente al nodo destino
-    private int dijkstra(Map<Point, List<Point>> graph, Point source, Point target) {
+    private int dijkstra(HexGameStatus s, Map<Point, List<Point>> graph, Point source, Point target) {
         Map<Point, Integer> distances = new HashMap<>();
         PriorityQueue<Point> pq = new PriorityQueue<>(Comparator.comparingInt(distances::get));
 
@@ -188,11 +212,17 @@ public class PlayerMinMax implements IPlayer, IAuto {
             }
 
             for (Point neighbor : graph.getOrDefault(current, new ArrayList<>())) {
-                int newDistance = currentDistance + 1; // Peso uniforme
+                int newDistance = currentDistance;
+
+                if (!source.equals(neighbor) && !target.equals(neighbor) && s.getPos(neighbor.x, neighbor.y) == 0) {
+                    newDistance++; // Peso uniforme
+                }
+                
                 if (newDistance < distances.getOrDefault(neighbor, Integer.MAX_VALUE)) {
                     distances.put(neighbor, newDistance);
                     pq.add(neighbor);
                 }
+
             }
         }
 
@@ -200,13 +230,13 @@ public class PlayerMinMax implements IPlayer, IAuto {
     }
 
     // Cuenta la cantidad de caminos válidos entre los nodos virtuales
-    private int countPaths(Map<Point, List<Point>> graph, Point source, Point target) {
+    private int countPaths(HexGameStatus s, Map<Point, List<Point>> graph, Point source, Point target, int shortestPath) {
         Set<Point> visited = new HashSet<>();
-        return dfs(graph, source, target, visited);
+        return dfs(s, graph, source, target, visited, shortestPath, 0);
     }
 
     // DFS para contar caminos
-    private int dfs(Map<Point, List<Point>> graph, Point current, Point target, Set<Point> visited) {
+    private int dfs(HexGameStatus s, Map<Point, List<Point>> graph, Point current, Point target, Set<Point> visited, int shortestPath, int count) {
         if (current.equals(target)) {
             return 1;
         }
@@ -215,11 +245,20 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
         for (Point neighbor : graph.getOrDefault(current, new ArrayList<>())) {
             if (!visited.contains(neighbor)) {
-                pathCount += dfs(graph, neighbor, target, visited);
+                if ((neighbor.x >= 0) && s.getPos(neighbor.x, neighbor.y) == 0) {
+                    count++;
+                }
+
+                if (count <= shortestPath) {
+                    pathCount += dfs(s, graph, neighbor, target, visited, shortestPath, count);
+                }
+                else {
+                    count = 0;
+                    continue;
+                }
             }
         }
 
-        visited.remove(current);
         return pathCount;
     }
 
