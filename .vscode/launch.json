@@ -5,6 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "java",
+            "name": "Game",
+            "request": "launch",
+            "mainClass": "edu.upc.epsevg.prop.hex.Game",
+            "projectName": "hex_game_711ce16a"
+        },
+        {
+            "type": "java",
+            "name": "UnitTesting",
+            "request": "launch",
+            "mainClass": "edu.upc.epsevg.prop.hex.UnitTesting",
+            "projectName": "hex_game_711ce16a"
+        },
+        {
             "type": "jdk",
             "request": "launch",
             "name": "Launch Java App"
