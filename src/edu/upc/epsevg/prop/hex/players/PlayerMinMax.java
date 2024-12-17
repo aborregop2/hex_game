@@ -52,13 +52,13 @@ public class PlayerMinMax implements IPlayer, IAuto {
             int value = minmax(newState, depth - 1, -color, !max, alpha, beta).value;
             
             if (max) {
-                if (value >= bestValue) {
+                if (value > bestValue) {
                     bestValue = value;
                     bestMove = move;
                 }
                 alpha = Math.max(alpha, bestValue);
             } else {
-                if (value <= bestValue) {
+                if (value < bestValue) {
                     bestValue = value;
                     bestMove = move;
                 }
@@ -69,8 +69,10 @@ public class PlayerMinMax implements IPlayer, IAuto {
             if (beta <= alpha) {
                 break;
             }
+
         }
 
+        
         return new MinMaxResult(bestMove, bestValue);
     }
 
@@ -100,8 +102,8 @@ public class PlayerMinMax implements IPlayer, IAuto {
 
         Map<Point, List<Point>> myGraph = new HashMap<>();
         Map<Point, List<Point>> hisGraph = new HashMap<>();
-        buildGraph(s, s.getCurrentPlayerColor(), myGraph, sourceNode, targetNode);
-        buildGraph(s, -s.getCurrentPlayerColor(), hisGraph, sourceNode, targetNode);
+        buildGraph(s, color, myGraph, sourceNode, targetNode);
+        buildGraph(s, -color, hisGraph, sourceNode, targetNode);
 
         HashMap<Point, Integer> myDistances = new HashMap<>();
         HashMap<Point, Integer> hisDistances = new HashMap<>();
@@ -131,7 +133,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
                     Point current = new Point(i, j);
                     graph.putIfAbsent(current, new ArrayList<>());
 
-                    for (Point neighbor : getNeighbors(current, s)) {
+                    for (Point neighbor : getNeighbors(current, s, color)) {
                         if (s.getPos(neighbor.x, neighbor.y) == color || s.getPos(neighbor.x, neighbor.y) == 0) {
                             graph.get(current).add(neighbor);
                         }
@@ -151,6 +153,74 @@ public class PlayerMinMax implements IPlayer, IAuto {
                 }
             }
         }
+
+        List<Point> sourceNeighbours = graph.get(sourceNode);
+      List<Point> targetNeighbours = graph.get(targetNode);
+      int size1 = sourceNeighbours.size();
+      int size2 = targetNeighbours.size();
+
+      if (color == 1) {
+          for (int i = 0; i < size1-1; ++i) {
+              Point n1 = sourceNeighbours.get(i);
+              Point n2 = sourceNeighbours.get(i+1);
+
+              if (n1.y + 1 == n2.y) {
+                  Point n3 = new Point(n1.x + 1, n1.y);
+
+                  if (graph.containsKey(n3)) {
+                    graph.get(sourceNode).add(n3);
+                    graph.get(n3).add(sourceNode);
+                  }
+              }
+
+          }
+
+          for (int i = 0; i < size2-1; ++i) {
+              Point n1 = targetNeighbours.get(i);
+              Point n2 = targetNeighbours.get(i+1);
+
+              if (n1.y + 1 == n2.y) {
+                  Point n3 = new Point(n2.x - 1, n1.y);
+                  
+                  if (graph.containsKey(n3)) {
+                    
+                    graph.get(targetNode).add(n3);
+                    graph.get(n3).add(targetNode);
+                  }
+              }
+
+          }
+      }
+      else  {
+          for (int i = 0; i < size1-1; ++i) {
+              Point n1 = sourceNeighbours.get(i);
+              Point n2 = sourceNeighbours.get(i+1);
+
+              if (n1.x + 1 == n2.x) {
+                  Point n3 = new Point(n1.x, n1.y + 1);
+                  if (graph.containsKey(n3)) {
+                    graph.get(sourceNode).add(n3);
+                    graph.get(n3).add(sourceNode);
+                  }
+              }
+
+          }
+
+          for (int i = 0; i < size2-1; ++i) {
+              Point n1 = targetNeighbours.get(i);
+              Point n2 = targetNeighbours.get(i+1);
+
+              if (n1.x + 1 == n2.x) {
+                  Point n3 = new Point(n2.x, n1.y - 1);
+                  if (graph.containsKey(n3)) {
+
+                    graph.get(targetNode).add(n3);
+                    graph.get(n3).add(targetNode);
+                  }
+              }
+
+          }
+      }
     }
 
     private int dijkstra(HexGameStatus s, Map<Point, List<Point>> graph, HashMap<Point, Integer> distances, Point source, Point target) {
@@ -205,7 +275,7 @@ public class PlayerMinMax implements IPlayer, IAuto {
         return counter;
     }
 
-    private static List<Point> getNeighbors(Point p, HexGameStatus s) {
+    private static List<Point> getNeighbors(Point p, HexGameStatus s, int color) {
         int x = p.x, y = p.y;
         List<Point> neighbors = new ArrayList<>();
     
@@ -224,24 +294,24 @@ public class PlayerMinMax implements IPlayer, IAuto {
             if (nx >= 0 && nx < s.getSize() && ny >= 0 && ny < s.getSize()
                 && nx2 >= 0 && nx2 < s.getSize() && ny2 >= 0 && ny2 < s.getSize()){
               
-              if (s.getPos(nx, ny) == 0 || s.getPos(nx, ny) == s.getCurrentPlayerColor()) {
+              if (s.getPos(nx, ny) == 0 || s.getPos(nx, ny) == color) {
                 if (!neighbors.contains(new Point(nx, ny))) {
                   neighbors.add(new Point(nx, ny));
                 }
               }
     
-              if (s.getPos(nx2, ny2) == 0 || s.getPos(nx2, ny2) == s.getCurrentPlayerColor()) {
+              if (s.getPos(nx2, ny2) == 0 || s.getPos(nx2, ny2) == color) {
                 if (!neighbors.contains(new Point(nx2, ny2))) {
                   neighbors.add(new Point(nx2, ny2));
                 }
               }
     
-              if (s.getPos(nx, ny) == 0 && s.getPos(nx2, ny2) == 0) {
+              if ((s.getPos(nx, ny) == 0) && (s.getPos(nx2, ny2) == 0)) {
                 int nx3 = x + directions[i][0] + directions[j][0];
                 int ny3 = y + directions[i][1] + directions[j][1];
     
                 if (nx3 >= 0 && nx3 < s.getSize() && ny3 >= 0 && ny3 < s.getSize()) {
-                  if (s.getPos(nx3, ny3) == 0 || s.getPos(nx3, ny3) == s.getCurrentPlayerColor()) {
+                  if (s.getPos(nx3, ny3) == 0 || s.getPos(nx3, ny3) == color) {
                     if (!neighbors.contains(new Point(nx3, ny3))) {
                       neighbors.add(new Point(nx3, ny3));
                     }
